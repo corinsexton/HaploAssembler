@@ -19,7 +19,7 @@ def parseArgs():
 	args = parser.parse_args()
 	return args
 
-def getReads(bamFile, contigOfInterest):
+def getReads(bamFile, contigOfInterest, positions):
 	bashCommand = "samtools view " + bamFile + " " + contigOfInterest
 	try:
 		process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -34,7 +34,8 @@ def getReads(bamFile, contigOfInterest):
 		ll = line.split('\t')
 		if ll[5] != '*' and ll[4] != '0': # no empty CIGAR string and no mapq 0
 			newRead = Read(ll)
-			reads.append(newRead)
+			if isInformative(newRead, positions):
+				reads.append(newRead)
 	return reads
 
 def getPositionList(vcf, startPos, stopPos):
@@ -73,6 +74,14 @@ def getPositionList(vcf, startPos, stopPos):
 	                		#	posDict[pos -1] = (first, second)
 	#print posDict
 	return posDict
+
+def isInformative(read, positions):
+        posList = read.rangesDict.keys()
+        count = 0
+        for i in posList:
+                if i in positions:
+                        return True
+        return False
 
 def createHaploStrings(reads, keys, posDict):
 	haploDict = defaultdict(dict) 
@@ -188,7 +197,7 @@ if __name__ == "__main__":
 	# samtools grabs all reads in bamfiles within contigOfInterest
 	reads = []
 	for file in bamFiles:
-		reads += getReads(file, contigOfInterest)
+		reads += getReads(file, contigOfInterest, positions)
 	#print "got reads    : "
 	#end = timer()
 	#print(end - start)
