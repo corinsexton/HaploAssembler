@@ -229,6 +229,7 @@ if __name__ == "__main__":
 	#print(end - start)
 
 
+
 	count = 0
 	for num in range(len(positions) - 1):
 		occurenceList = []
