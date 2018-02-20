@@ -19,23 +19,61 @@ def parseArgs():
 	args = parser.parse_args()
 	return args
 
-def getReads(bamFile, contigOfInterest):
-	bashCommand = "samtools view " + bamFile + " " + contigOfInterest
+def getReads(bamFile, contigOfInterest, positions):
+	#bashCommand = "samtools view " + bamFile + " " + contigOfInterest
+	viewCmd= "samtools view -h " + bamFile + " " + contigOfInterest
+	sortCmd= "samtools sort -n -"
+	viewCmd2= "samtools view"
 	try:
-		process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+		p1 = subprocess.Popen(viewCmd.split(' '), stdout=subprocess.PIPE)
+		p2 = subprocess.Popen(sortCmd.split(' '), stdin=p1.stdout, stdout=subprocess.PIPE)
+		p3 = subprocess.Popen(viewCmd2.split(' '), stdin=p2.stdout, stdout=subprocess.PIPE)
 	except:
 		print "load samtools module"
 		sys.exit()
-	output, error = process.communicate()
+	output, error = p3.communicate()
 	
 	lines = output.strip().split('\n')
+	print "LINES",len(lines)
 	reads = []
-	for line in lines:
+	count = 0 
+	pair = True
+	for i in range(len(lines) - 1):
+		line = lines[i]
+		line1 = lines[i + 1]
+
 		ll = line.split('\t')
-		if ll[5] != '*' and ll[4] != '0': # no empty CIGAR string and no mapq 0
-			newRead = Read(ll)
-			reads.append(newRead)
+		if ll[0] in line1: # PAIRED READS
+			ll1 = line1.split('\t')
+			pair = True
+			newRead = Read.ReadPair(ll, ll1)
+			count += 2
+			if isInformative(newRead, positions): # IF PHASE INFORMATIVE
+				reads.append(newRead)
+		else: # NOT PAIRED READ
+			if pair:
+				pair = False
+			else:
+				newRead = Read(ll)
+				if isInformative(newRead, positions): # IF PHASE INFORMATIVE
+					reads.append(newRead)
+
+
+	#	if ll[5] != '*' and ll[4] != '0': # no empty CIGAR string and no mapq 0
+	#		newRead = Read(ll)
+	#		#newReadPair = Read(ll)
+	#		reads.append(newRead)
 	return reads
+
+def isInformative(read, positions):
+	posList = read.rangesDict1.keys() + read.rangesDict2.keys()
+	count = 0
+	for i in posList:
+		if count >= 2:
+			return True
+		if i in positions:
+			count += 1
+	return False
 
 def getPositionList(vcf, startPos, stopPos):
 	# 21    48112747    .    T    TCTC    103.69    PASS    AC=1;AN=2    GT:AD:DP:GQ:PL    0/1:18,5:23:99:153,0,963
@@ -64,62 +102,72 @@ def getPositionList(vcf, startPos, stopPos):
 					break
 
 					#if abs(len(first) - len(second)) > 2:
-	                		#	posDict[pos -1] = (first, second)
 					#elif len(first) == 1 and len(second) == 1: #SNP
-	                		#	posDict[pos -1] = (first, second)
 					#elif len(first) > 1 and len(second) == 1: # deletion
-	                		#	posDict[pos -1] = (first, second)
 					#elif len(first) == 1 and len(second) > 1: # insertion
-	                		#	posDict[pos -1] = (first, second)
-	#print posDict
 	return posDict
 
 def createHaploStrings(reads, keys, posDict):
-	haploDict = defaultdict(dict) 
-	subsetReads = []
+	haploDict = defaultdict(dict) # if paired end, readnames (the key) are same
 	for read in reads:
 		numVars = 0
 		for position in keys:
-			if position in read.rangesDict:
-				tup = posDict.get(position)
-				first = tup[0]
-				second = tup[1]
+			dict1 = False
+			dict2 = False
+			if position in read.rangesDict1:
+				dict1 = True
+			elif position in read.rangesDict2:
+				dict2 = True
+			else:
+				continue
+			
+			tup = posDict.get(position)
+			first = tup[0]
+			second = tup[1]
+			len1 = len(first)
+			len2 = len(second)
 				
-				readStartInd = read.rangesDict.get(position)
-				readVal1 = read._seq[readStartInd:readStartInd + len(first)]
-				readVal2 = read._seq[readStartInd:readStartInd + len(second)]
-				len1 = len(first)
-				len2 = len(second)
+			if dict1:
+			
+				readStartInd = read.rangesDict1.get(position)
+				readVal1 = read._seq[readStartInd:readStartInd + len1]
+				readVal2 = read._seq[readStartInd:readStartInd + len2]
 
-				if len1 == 1 and len2 == 1: #SNP
-					if readVal1 == first:
-						haploDict[read.qname][position] = '0'
-						numVars += 1
-					elif readVal2 == second:
-						haploDict[read.qname][position] = '1'
-						numVars += 1
-				else:
-					if len(readVal1) == len1 and len(readVal2) == len2:
-						if len1 > len2:
-							if readVal1 == first:
-								haploDict[read.qname][position] = '0'
-								numVars += 1
-							elif readVal2 == second:
-								haploDict[read.qname][position] = '1'
-								numVars += 1
-						else:
-							if readVal2 == second:
-								haploDict[read.qname][position] = '1'
-								numVars += 1
-							elif readVal1 == first:
-								haploDict[read.qname][position] = '0'
-								numVars += 1
+			elif dict2:
+
+				readStartInd = read.rangesDict2.get(position)
+				readVal1 = read._seq2[readStartInd:readStartInd + len1]
+				readVal2 = read._seq2[readStartInd:readStartInd + len2]
+
+			if len1 == 1 and len2 == 1: #SNP
+				if readVal1 == first:
+					haploDict[read.qname][position] = '0'
+					numVars += 1
+				elif readVal2 == second:
+					haploDict[read.qname][position] = '1'
+					numVars += 1
+			else:
+				if len(readVal1) == len1 and len(readVal2) == len2:
+					if len1 > len2:
+						if readVal1 == first:
+							haploDict[read.qname][position] = '0'
+							numVars += 1
+						elif readVal2 == second:
+							haploDict[read.qname][position] = '1'
+							numVars += 1
+					else:
+						if readVal2 == second:
+							haploDict[read.qname][position] = '1'
+							numVars += 1
+						elif readVal1 == first:
+							haploDict[read.qname][position] = '0'
+							numVars += 1
 		read._seq = None
+		read._seq2 = None
+
+	subsetReads = []
 	for r in reads:
-		#print r.qname
-		#if r.qname == "HSQ1004:134:C0D8DACXX:2:2101:2267:43445":
-			#print 'yes'
-		if len(haploDict[r.qname]) >= 2:
+		if len(haploDict[r.qname]) >= 2: # toss reads that are not 0 or 1 genotype
 			subsetReads.append(r)
 	return haploDict, subsetReads
 
@@ -163,8 +211,6 @@ if __name__ == "__main__":
 	start = timer()
 
 	args = parseArgs()
-#	pr = cProfile.Profile()
-#	pr.enable()
 	
 	bamFiles = args.bamFile
 	contigOfInterest = args.contigOfInterest
@@ -181,31 +227,16 @@ if __name__ == "__main__":
 	# get list of variant positions within contigOfInterest
 	posDict = getPositionList(vcfFile, startPosition + 1, stopPosition)
 	positions = sorted(posDict.keys())
-	#print "read vcf file: "
-	#end = timer()
-	#print(end - start)
-		
+
 	# samtools grabs all reads in bamfiles within contigOfInterest
 	reads = []
 	for file in bamFiles:
-		reads += getReads(file, contigOfInterest)
-	#print "got reads    : "
-	#end = timer()
-	#print(end - start)
+		reads += getReads(file, contigOfInterest, positions)
 
 	# print summary of input reads
 	print "contig: {}\n\tlength={}\n\t{} reads\n\t{} variants".format(contigOfInterest, stopPosition - startPosition, len(reads), len(posDict))
 
 	haploDict, subsetReads = createHaploStrings(reads, positions, posDict)
-	#print "haploDicts   : "
-	#end = timer()
-	#print(end - start)
-
-	#print "sort position: "
-	#end = timer()
-	#print(end - start)
-	#{ position : ('A','AT'), ... }
-	# zero-based position
 
 	haplotype1 = ''
 	haplotype2 = ''
@@ -213,9 +244,6 @@ if __name__ == "__main__":
 	del reads
 	subsetReads.sort(key=lambda x: x.pos)
 	print "\tsubset of reads =", len(subsetReads)
-	#print "sort reads   : "
-	#end = timer()
-	#print(end - start)
 
 
 	count = 0
@@ -252,10 +280,5 @@ if __name__ == "__main__":
 	print haplotype2
 		
 	print count
-#	print "haplotypes   : "
-#	end = timer()
-#	print(end - start)
-#	pr.disable()
-#	pr.print_stats(sort = 'time')
 
 	

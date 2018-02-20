@@ -40,13 +40,22 @@ class Read(object):
 		self.pnext = int(ll[7])
 		self.tlen = int(ll[8])
 		self._seq = ll[9]
+		self._seq2 = None
 		self.qual = ll[10]
 
 		self.length = len(self._seq)
-		self.rangesDict = {} #{ refIndex : queryIndex }
+		self.rangesDict1 = {} #{ refIndex : queryIndex }
+		self.rangesDict2 = {} #{ refIndex : queryIndex }
 
 		# populate RA and QA ranges
-		self.getCigarAlignment()
+		self.getCigarAlignment(self.pos, self.cigar, self.rangesDict1)
+
+	@classmethod
+	def ReadPair(self,ll, ll1):
+		read = Read(ll)
+		read.getCigarAlignment(int(ll1[3]), ll1[5], read.rangesDict2)
+		read._seq2 = ll[9]
+		return read
 
 	
 	def findIfRev(self):
@@ -63,10 +72,10 @@ class Read(object):
 				self.pos, self.cigar)
 		return string
 	
-	def getCigarAlignment(self):
-		cigarList = list(self.cigar)
+	def getCigarAlignment(self, position, cigar, rangesDict):
+		cigarList = list(cigar)
 		typeList = []
-		refStart = self.pos - 1 #samtools = 1-based position
+		refStart = position - 1 #samtools = 1-based position
 		queStart = 0
 
 		for c in cigarList: #convert to ints and strings in CIGAR
@@ -88,7 +97,7 @@ class Read(object):
 				num = int(num)
 				if c in ["M", "=", "X"]:
 					for i in range(num):
-						self.rangesDict[refStart + i] = queStart + i
+						rangesDict[refStart + i] = queStart + i
 						
 					queStart = queStart + num
 					refStart = refStart + num
