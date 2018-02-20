@@ -34,8 +34,8 @@ def getReads(bamFile, contigOfInterest, positions):
 		ll = line.split('\t')
 		if ll[5] != '*' and ll[4] != '0': # no empty CIGAR string and no mapq 0
 			newRead = Read(ll)
-			if isInformative(newRead, positions):
-				reads.append(newRead)
+			#if isInformative(newRead, positions):
+			reads.append(newRead)
 	return reads
 
 def getPositionList(vcf, startPos, stopPos):
@@ -75,13 +75,15 @@ def getPositionList(vcf, startPos, stopPos):
 	#print posDict
 	return posDict
 
-def isInformative(read, positions):
-        posList = read.rangesDict.keys()
-        count = 0
-        for i in posList:
-                if i in positions:
-                        return True
-        return False
+#def isInformative(read, positions):
+#        posList = read.rangesDict.keys()
+#        count = 0
+#        for i in posList:
+#		if count >= 2:
+#			return True
+#		if i in positions:
+#			count += 1
+#        return False
 
 def createHaploStrings(reads, keys, posDict):
 	haploDict = defaultdict(dict) 
