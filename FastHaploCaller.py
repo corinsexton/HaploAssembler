@@ -46,17 +46,19 @@ def getReads(bamFile, contigOfInterest, positions):
 		if ll[0] in line1: # PAIRED READS
 			ll1 = line1.split('\t')
 			pair = True
-			newRead = Read.ReadPair(ll, ll1)
-			count += 2
-			if isInformative(newRead, positions): # IF PHASE INFORMATIVE
-				reads.append(newRead)
+			if int(ll[4]) != 0 and int(ll1[4]) != 0:
+				newRead = Read.ReadPair(ll, ll1)
+				count += 2
+				if isInformative(newRead, positions): # and ll[4] != 0 and ll1[4] != 0: # IF PHASE INFORMATIVE
+					reads.append(newRead)
 		else: # NOT PAIRED READ
 			if pair:
 				pair = False
 			else:
-				newRead = Read(ll)
-				if isInformative(newRead, positions): # IF PHASE INFORMATIVE
-					reads.append(newRead)
+				if int(ll[4]) != 0:
+					newRead = Read(ll)
+					if isInformative(newRead, positions): # and ll[4] != 0: # IF PHASE INFORMATIVE
+						reads.append(newRead)
 
 
 	#	if ll[5] != '*' and ll[4] != '0': # no empty CIGAR string and no mapq 0
