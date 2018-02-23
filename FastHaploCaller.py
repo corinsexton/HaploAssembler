@@ -19,6 +19,8 @@ def parseArgs():
 	args = parser.parse_args()
 	return args
 
+
+# PROBLEM OF HAVING READS IN THE SAM FILE 3+ TIMES (NOT SIMPLY PAIRED AND SINGLE)
 def getReads(bamFile, contigOfInterest, positions):
 	#bashCommand = "samtools view " + bamFile + " " + contigOfInterest
 	viewCmd= "samtools view -h " + bamFile + " " + contigOfInterest
@@ -32,39 +34,67 @@ def getReads(bamFile, contigOfInterest, positions):
 		print "load samtools module"
 		sys.exit()
 	output, error = p3.communicate()
-	
+	x = open('read.sam','w')
+	x.write(output)
+
+	#print output
+	#sys.exit()
 	lines = output.strip().split('\n')
 	print "LINES",len(lines)
 	reads = []
 	count = 0 
-	pair = True
+	counter = 0 
+	count1 = 0 
+	count2 = 0 
+	count3 = 0 
+	pair = False
+
 	for i in range(len(lines) - 1):
+		counter += 1
 		line = lines[i]
 		line1 = lines[i + 1]
 
 		ll = line.split('\t')
-		if ll[0] in line1: # PAIRED READS
-			ll1 = line1.split('\t')
+		ll1 = line1.split('\t')
+		if ll[0] == ll1[0]: # PAIRED READS
+			#ll1 = line1.split('\t')
 			pair = True
-			if int(ll[4]) != 0 and int(ll1[4]) != 0:
+			count1 += 1
+			if ll[4] != '0' and ll1[4] != '0':
+				print
 				newRead = Read.ReadPair(ll, ll1)
-				count += 2
 				if isInformative(newRead, positions): # and ll[4] != 0 and ll1[4] != 0: # IF PHASE INFORMATIVE
 					reads.append(newRead)
 		else: # NOT PAIRED READ
-			if pair:
+			if pair == True:
+				print
+				count2 += 1
 				pair = False
 			else:
-				if int(ll[4]) != 0:
+				print counter
+				count3 += 1
+				if ll[4] != '0':
 					newRead = Read(ll)
 					if isInformative(newRead, positions): # and ll[4] != 0: # IF PHASE INFORMATIVE
 						reads.append(newRead)
+	if pair == False:
+		count3 += 1
+		ll = line1.split('\t')
+		if ll[4] != '0':
+			newRead = Read(ll)
+			if isInformative(newRead, positions): # and ll[4] != 0: # IF PHASE INFORMATIVE
+		       		reads.append(newRead)
+		
 
 
 	#	if ll[5] != '*' and ll[4] != '0': # no empty CIGAR string and no mapq 0
 	#		newRead = Read(ll)
 	#		#newReadPair = Read(ll)
 	#		reads.append(newRead)
+	print 'total:',counter
+	print 'paired:',count1
+	print 'paired2:',count2
+	print 'notpaired:',count3
 	return reads
 
 def isInformative(read, positions):
@@ -239,6 +269,7 @@ if __name__ == "__main__":
 	print "contig: {}\n\tlength={}\n\t{} reads\n\t{} variants".format(contigOfInterest, stopPosition - startPosition, len(reads), len(posDict))
 
 	haploDict, subsetReads = createHaploStrings(reads, positions, posDict)
+
 
 	haplotype1 = ''
 	haplotype2 = ''
