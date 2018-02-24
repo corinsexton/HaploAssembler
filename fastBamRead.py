@@ -37,10 +37,24 @@ class Read(object):
 		self.mapq = int(ll[4])
 		self.cigar = ll[5]
 		self.rnext = ll[6]
-		self.pnext = int(ll[7])
-		self.tlen = int(ll[8])
+		self.pnext = int(ll[7]) # PAIR POSITION
+		self.tlen = int(ll[8]) # TOTAL LENGTH OF PAIR TO OTHER PAIR
 		self._seq = ll[9]
 		self.qual = ll[10]
+
+
+		# WHAT RANGES IT COVERS
+		if self.rnext == '=':
+			if self.pos > self.pnext:
+				self.first = self.pnext
+			else:
+				self.first = self.pos
+
+			self.last = self.first + abs(self.tlen)
+
+		else:
+			self.first = 0
+			self.last = float('inf')
 
 		self.length = len(self._seq)
 		self.rangesDict = {} #{ refIndex : queryIndex }

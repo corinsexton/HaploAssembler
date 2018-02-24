@@ -29,12 +29,13 @@ def getReads(bamFile, contigOfInterest, positions):
 	output, error = process.communicate()
 	
 	lines = output.strip().split('\n')
+	file = open('read.sam', 'w')
+	file.write(output)
 	reads = []
 	for line in lines:
 		ll = line.split('\t')
 		if ll[5] != '*' and ll[4] != '0': # no empty CIGAR string and no mapq 0
 			newRead = Read(ll)
-			#if isInformative(newRead, positions):
 			reads.append(newRead)
 	return reads
 
@@ -192,30 +193,30 @@ if __name__ == "__main__":
 	# get list of variant positions within contigOfInterest
 	posDict = getPositionList(vcfFile, startPosition + 1, stopPosition)
 	positions = sorted(posDict.keys())
-	#print "read vcf file: "
-	#end = timer()
-	#print(end - start)
+	print "read vcf file: "
+	end = timer()
+	print(end - start)
 		
 	# samtools grabs all reads in bamfiles within contigOfInterest
 	reads = []
 	for file in bamFiles:
 		reads += getReads(file, contigOfInterest, positions)
-	#print "got reads    : "
-	#end = timer()
-	#print(end - start)
+	print "got reads    : "
+	end = timer()
+	print(end - start)
 
 	# print summary of input reads
 	print "contig: {}\n\tlength={}\n\t{} reads\n\t{} variants".format(contigOfInterest, stopPosition - startPosition, len(reads), len(posDict))
 
 	haploDict, subsetReads = createHaploStrings(reads, positions, posDict)
-	#print "haploDicts   : "
-	#end = timer()
-	#print(end - start)
+	print "haploDicts   : "
+	end = timer()
+	print(end - start)
 
-	#print "sort position: "
-	#end = timer()
-	#print(end - start)
-	#{ position : ('A','AT'), ... }
+	print "sort position: "
+	end = timer()
+	print(end - start)
+#	#{ position : ('A','AT'), ... }
 	# zero-based position
 
 	haplotype1 = ''
@@ -224,9 +225,9 @@ if __name__ == "__main__":
 	del reads
 	subsetReads.sort(key=lambda x: x.pos)
 	print "\tsubset of reads =", len(subsetReads)
-	#print "sort reads   : "
-	#end = timer()
-	#print(end - start)
+	print "sort reads   : "
+	end = timer()
+	print(end - start)
 
 
 
@@ -236,9 +237,9 @@ if __name__ == "__main__":
 		pos1 = positions[num]
 		pos2 = positions[num + 1]
 		for read in subsetReads:
-			if read.pos - 1000 > pos2:
+			if read.first > pos2 + 117: # Read is beyond the position
 				break
- 			if (read.pos + read.length) + 1000 < pos1:
+			if read.last < pos1 + 1: # Read is too far before the position
 				continue
 			count += 1
 			readDict = haploDict[read.qname]
@@ -264,9 +265,9 @@ if __name__ == "__main__":
 	print haplotype2
 		
 	print count
-#	print "haplotypes   : "
-#	end = timer()
-#	print(end - start)
+	print "haplotypes   : "
+	end = timer()
+	print(end - start)
 #	pr.disable()
 #	pr.print_stats(sort = 'time')
 
